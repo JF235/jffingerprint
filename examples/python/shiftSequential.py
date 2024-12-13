@@ -7,6 +7,7 @@ import faiss
 import numpy as np
 import pickle
 from tqdm import tqdm
+from numba import njit, jit
 # Print current date
 from datetime import datetime
 
@@ -50,55 +51,60 @@ for i in range(len(shapes)):
 ################################################################################################
 
 # Otimizar a partir daqui usando numba
+@njit(fastmath=True)
+def sequential_search(features, shapes, queries, qshapes, mean, stddev, result, filenames, max_queries):
+    all_D = []
+    all_I = []
 
-all_D = []
-all_I = []
-times = []
+    acc = 0
+    for p in range(max_queries):
+        query = queries[acc:acc + qshapes[p]]
+        acc += qshapes[p]
+
+        qidxs = []
+        qdist = []
+        for qf in query:  # Query Feature
+            # Preallocate for all distances
+            distances = np.zeros(len(result))
+            accumulated = 0
+            for i in range(len(shapes)):
+                sf = features[accumulated:accumulated + shapes[i]]  # Shifted Features
+                sqf = (qf - mean[i]) / stddev[i]  # Shifted Query Feature
+
+                # Compute the distance between the query and all gallery features
+                distances[accumulated:accumulated + shapes[i]] = np.sum((sf - sqf) ** 2, axis=1)
+                accumulated += shapes[i]
+            # Get the indices of the k closest and the distances
+            k = 16
+            idxs = np.argsort(distances)[:k]
+            dd = distances[idxs]
+
+            qidxs.append(idxs)
+            qdist.append(dd)
+
+        all_I.append(qidxs)
+        all_D.append(qdist)
+
+    return all_I, all_D
 
 max_queries = 2
-progress_bar = tqdm(range(min(max_queries, len(qshapes))), desc="Processing queries")
-old_time = 0
+# Perform the sequential search using Numba
+# time sequential_search
+start = datetime.now()
+all_I, all_D = sequential_search(features, shapes, queries, qshapes, mean, stddev, result, filenames, max_queries)
+print("Sequential search time:", datetime.now() - start)
 
-acc = 0
-for p in progress_bar:
-    query = queries[acc:acc + qshapes[p]]
-    acc += qshapes[p]
-
+p = 0
+for I, D in zip(all_I, all_D):
+    I, D = np.array(I), np.array(D)
     print()
     print(f"Query {p}", qfilenames[p], "(queries:" + str(qshapes[p]) + ")")
-    # Make a sequential search for the closest features
-
-    accumulated = 0
-    qidxs = []
-    qdist = []
-    for qf in query: # Query Feature
-        # Preallocate for all distances
-        distances = np.zeros(len(result))
-        accumulated = 0
-        for i in range(len(shapes)):
-            sf = features[accumulated:accumulated + shapes[i]] # Shifted Features
-            sqf = (qf - mean[i]) / stddev[i] # Shifted Query Feature
-
-            # Compute the distance between the query and all gallery features
-            distances[accumulated:accumulated + shapes[i]] = np.sum( (sf - sqf)**2, axis=1)
-            accumulated += shapes[i]
-            
-        # Get the indices of the k closest and the distances
-        k = 16
-        idxs = np.argsort(distances)[:k]
-        dd = distances[idxs]
-
-        qidxs.append(idxs)
-        qdist.append(dd)
-        
-        for idx in idxs:
-            print(filenames[result[idx]], ":", f"{distances[idx]:.4f}", sep="", end="  ")
+    for i in range(I.shape[0]):
+        idxs = I[i]
+        for j, idx in enumerate(idxs):
+            print(filenames[result[idx]], ":", f"{D[i][j]:.4f}", sep="", end="  ")
         print()
-    
-    all_I.append(qidxs)
-    all_D.append(qdist)
+    p += 1
 
-    elapsed_time = progress_bar.format_dict['elapsed']
-    times.append(elapsed_time - old_time)
-    print(f"Elapsed time after query {p}: {format_time(times[-1])}")
-    old_time = elapsed_time
+with open(qcache + '_results_numba.pkl', 'wb') as f:
+    pickle.dump((all_I, all_D), f)
