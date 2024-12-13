@@ -7,7 +7,7 @@ from jffpy.printing import format_time, purify_name
 from jffpy.plotting import plot_time
 from jffpy.benchmark import eval_rank
 
-#plot_time("sd27_latent_results.pkl")
+plot_time("sd27_latent_results.pkl")
 with open("tse1kflat_sd27.pkl", "rb") as f:
     feature_shapes, filenames = pickle.load(f)
 

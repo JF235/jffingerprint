@@ -52,9 +52,10 @@ progress_bar = tqdm(range(min(max_queries, len(qshapes))), desc="Processing quer
 old_time = 0
 
 accumulated = 0
-for i in progress_bar:
-    query = queries[accumulated:accumulated + qshapes[i]]
-    accumulated += qshapes[i]
+result = np.repeat(np.arange(len(shapes)), shapes)
+for p in progress_bar:
+    query = queries[accumulated:accumulated + qshapes[p]]
+    accumulated += qshapes[p]
 
     # Query the index
     k = 16
@@ -62,10 +63,8 @@ for i in progress_bar:
     all_D.append(D)
     all_I.append(I)
 
-    result = np.repeat(np.arange(len(shapes)), shapes)
-
     print()
-    print(f"Query {i}", qfilenames[i], "(queries:" + str(qshapes[i]) + ")")
+    print(f"Query {p}", qfilenames[p], "(queries:" + str(qshapes[p]) + ")")
     for i in range(I.shape[0]):
         idxs = I[i]
         for j, idx in enumerate(idxs):
@@ -74,7 +73,7 @@ for i in progress_bar:
     
     elapsed_time = progress_bar.format_dict['elapsed']
     times.append(elapsed_time - old_time)
-    print(f"Elapsed time after query {i}: {format_time(times[-1])}")
+    print(f"Elapsed time after query {p}: {format_time(times[-1])}")
     old_time = elapsed_time
 
 
