@@ -5,15 +5,14 @@
 #include <cmath>
 #include <string>
 #include <iostream>
-#include "ParentedFeature.hpp"
 
-template <typename NumT>
+template <typename F>
 class Individual {
 public:
     /**
      * @brief Default constructor that initializes an empty Individual.
      */
-    Individual() : id(nextId++), mean(), std() {}
+    Individual() : id(nextId++), mean(), stddev() {}
 
     /**
      * @brief Adds a feature to the Individual.
@@ -27,11 +26,11 @@ public:
      * @brief Calculates the mean feature of the Individual.
      * @param features Vector containing all features.
      */
-    void calculateMean(const std::vector<ParentedFeature<NumT>>& features) {
+    void calculateMean(const std::vector<F>& features) {
         if (features.empty()) return;
 
         size_t featureSize = features[0].size();
-        std::vector<NumT> meanValues(featureSize, 0);
+        std::vector<float> meanValues(featureSize, 0);
 
         for (const auto& feature : features) {
             for (size_t i = 0; i < featureSize; ++i) {
@@ -43,22 +42,22 @@ public:
             meanValues[i] /= features.size();
         }
 
-        mean = ParentedFeature<NumT>(0, meanValues);
+        mean = F(0, meanValues);
     }
 
     /**
      * @brief Calculates the standard deviation feature of the Individual.
      * @param features Vector containing all features.
      */
-    void calculateStd(const std::vector<ParentedFeature<NumT>>& features) {
+    void calculateStd(const std::vector<F>& features) {
         if (features.empty()) return;
 
         size_t featureSize = features[0].size();
-        std::vector<NumT> stdValues(featureSize, 0);
+        std::vector<float> stdValues(featureSize, 0);
 
         for (const auto& feature : features) {
             for (size_t i = 0; i < featureSize; ++i) {
-                NumT diff = feature[i] - mean[i];
+                float diff = feature[i] - mean[i];
                 stdValues[i] += diff * diff;
             }
         }
@@ -67,7 +66,7 @@ public:
             stdValues[i] = std::sqrt(stdValues[i] / features.size());
         }
 
-        std = ParentedFeature<NumT>(0, stdValues);
+        stddev = F(0, stdValues);
     }
 
     void print() const {
@@ -83,10 +82,10 @@ public:
 
         // Calculate the mean of the standard deviations
         float meanOfStds = 0;
-        for (const auto& val : std.values) {
+        for (const auto& val : stddev.values) {
             meanOfStds += val;
         }
-        meanOfStds /= std.values.size();
+        meanOfStds /= stddev.values.size();
 
         // Increase the precision of the output
         std::cout.precision(10);
@@ -106,10 +105,10 @@ public:
 
         // Calculate the mean of the standard deviations
         float meanOfStds = 0;
-        for (const auto& val : std.values) {
+        for (const auto& val : stddev.values) {
             meanOfStds += val;
         }
-        meanOfStds /= std.values.size();
+        meanOfStds /= stddev.values.size();
 
         // Increase the precision of the output
         std::cout.precision(10);
@@ -137,7 +136,7 @@ public:
         std::cout << "\n";
 
         std::cout << "Std: ";
-        for (const auto& val : std.values) {
+        for (const auto& val : stddev.values) {
             std::cout << val << " ";
         }
         std::cout << "\n\n";
@@ -149,8 +148,8 @@ public:
 
     uint32_t id;                    ///< Unique identifier of the Individual
     std::vector<uint32_t> features; ///< List of feature IDs associated with the Individual
-    ParentedFeature<NumT> mean;             ///< Mean feature
-    ParentedFeature<NumT> std;              ///< Standard deviation feature
+    F mean;    ///< Mean feature
+    F stddev;  ///< Standard deviation feature
     std::string name;               ///< Name of the Individual
 
 private:
@@ -158,7 +157,7 @@ private:
 };
 
 // Initialize the static member
-template <typename NumT>
-uint32_t Individual<NumT>::nextId = 1;
+template <typename F>
+uint32_t Individual<F>::nextId = 1;
 
 #endif // INDIVIDUAL_HPP

@@ -1,6 +1,6 @@
 #include "jff.hpp"
 
-typedef ParentedFeature<float> feature;
+typedef ParentedFeature feature;
 typedef EuclideanDistance<feature> euclidean;
 typedef ShiftSequentialSearcher<feature, euclidean> shift_searcher;
 

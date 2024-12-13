@@ -29,11 +29,11 @@ public:
      * @param representative The representative individual.
      * @return F The shifted and scaled query object.
      */
-    static F shift(F &feature, Individual<float> *representative)
+    static F shift(F &feature, Individual<F> *representative)
     {
 
         F mean = representative->mean;
-        F std = representative->std;
+        F std = representative->stddev;
         F shifted_feature(feature.size());
 
         // f = f * std + mean

@@ -12,9 +12,7 @@
  *
  * A feature is a vector of values that can be used to represent an object.
  *
- * @tparam NumT Type of the values of the feature.
  */
-template <typename NumT>
 class Feature
 {
 public:
@@ -28,7 +26,7 @@ public:
      * @param id Unique identifier of the Feature.
      * @param vals Vector of values of the Feature.
      */
-    Feature(uint32_t id, const std::vector<NumT> &vals)
+    Feature(uint32_t id, const std::vector<float> &vals)
         : id(id), values(vals)
     {
         if (id >= nextId && id != 0)
@@ -49,7 +47,7 @@ public:
      *
      * @param vals Vector of values of the Feature.
      */
-    Feature(std::vector<NumT> &vals)
+    Feature(std::vector<float> &vals)
         : values(vals)
     {
         id = nextId++;
@@ -62,7 +60,7 @@ public:
      *
      * @param vals rvalue reference to the vector of values of the Feature.
      */
-    Feature(std::vector<NumT> &&vals)
+    Feature(std::vector<float> &&vals)
         : values(std::move(vals))
     {
         id = nextId++;
@@ -85,9 +83,9 @@ public:
      * @brief Returns the norm of the Feature.
      * @return The norm of the Feature.
      */
-    NumT norm() const
+    float norm() const
     {
-        NumT norm = 0;
+        float norm = 0;
         for (auto val : values)
         {
             norm += val * val;
@@ -131,7 +129,7 @@ public:
      * @param index Index of the value to be accessed.
      * @return The value at the specified index.
      */
-    const NumT &operator[](size_t index) const
+    const float &operator[](size_t index) const
     {
         return values[index];
     }
@@ -141,7 +139,7 @@ public:
      * @param index Index of the value to be accessed.
      * @return The value at the specified index.
      */
-    NumT &operator[](size_t index)
+    float &operator[](size_t index)
     {
         return values[index];
     }
@@ -150,7 +148,7 @@ public:
      * @brief Returns a constant iterator to the beginning of the values vector.
      * @return Constant iterator to the beginning of the values vector.
      */
-    typename std::vector<NumT>::const_iterator begin() const
+    typename std::vector<float>::const_iterator begin() const
     {
         return values.begin();
     }
@@ -159,7 +157,7 @@ public:
      * @brief Returns a constant iterator to the end of the values vector.
      * @return Constant iterator to the end of the values vector.
      */
-    typename std::vector<NumT>::const_iterator end() const
+    typename std::vector<float>::const_iterator end() const
     {
         return values.end();
     }
@@ -192,28 +190,27 @@ public:
         std::size_t seed = 0;
         for (const auto &val : values)
         {
-            seed ^= std::hash<NumT>{}(val) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            seed ^= std::hash<float>{}(val) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         }
         return seed;
     }
 
     uint32_t id;              ///< Unique identifier
-    std::vector<NumT> values; ///< Vector of values
+    std::vector<float> values; ///< Vector of values
 private:
     size_t printLimit = 5;  ///< 0 means no limit
     static uint32_t nextId; ///< Next unique identifier
 };
 
 // Initialize the static member
-template <typename NumT>
-uint32_t Feature<NumT>::nextId = 0;
+uint32_t Feature::nextId = 0;
 
 namespace std
 {
-    template <typename NumT>
-    struct hash<Feature<NumT>>
+    template <>
+    struct hash<Feature>
     {
-        std::size_t operator()(const Feature<NumT> &f) const
+        std::size_t operator()(const Feature &f) const
         {
             return f.hash();
         }

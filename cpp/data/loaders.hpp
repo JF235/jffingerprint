@@ -181,17 +181,17 @@ std::vector<F> loadFile(const std::string &filename, bool log_info)
  * @param log_info If true, logs information about the loading process.
  * @return A pair consisting of a vector of individual pointers and a vector of features.
  */
-std::pair<std::vector<std::shared_ptr<Individual<float>>>, std::vector<ParentedFeature<float>>> loadIndividuals(const std::string &directoryPath, bool log_info)
+std::pair<std::vector<std::shared_ptr<Individual<ParentedFeature>>>, std::vector<ParentedFeature>> loadIndividuals(const std::string &directoryPath, bool log_info, bool progress_bar = false)
 {
-    using feature = ParentedFeature<float>;
-    std::vector<std::shared_ptr<Individual<float>>> individuals;
+    using feature = ParentedFeature;
+    std::vector<std::shared_ptr<Individual<ParentedFeature>>> individuals;
     std::vector<feature> allFeatures;
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    // Get the total number of files to process for the progress bar
     size_t totalFiles = std::distance(fs::directory_iterator(directoryPath), fs::directory_iterator{});
     size_t processedFiles = 0;
+
 
     // Iterate through all files in the directory and load individuals from .npy or .tpt files
     for (const auto &entry : fs::directory_iterator(directoryPath))
@@ -200,7 +200,7 @@ std::pair<std::vector<std::shared_ptr<Individual<float>>>, std::vector<ParentedF
         if (extension == ".npy" || extension == ".tpt")
         {
             // For each file, create an individual
-            auto individual = std::make_shared<Individual<float>>();
+            auto individual = std::make_shared<Individual<ParentedFeature>>();
             individual->name = entry.path().filename().string();
 
             // Load all features from the file
@@ -221,11 +221,14 @@ std::pair<std::vector<std::shared_ptr<Individual<float>>>, std::vector<ParentedF
             individuals.push_back(individual);
         }
 
-        // Update the progress bar
         processedFiles++;
-        int progress = static_cast<int>(static_cast<double>(processedFiles) / totalFiles * 50);
-        std::cout << "\rProgress: [" << std::string(progress, '*') << std::string(50 - progress, ' ') << "] " << (progress * 2) << "%";
-        std::cout.flush();
+        // Update the progress bar
+        if (progress_bar){
+            int progress = static_cast<int>(static_cast<double>(processedFiles) / totalFiles * 50);
+            std::cout << "\rProgress: [" << std::string(progress, '*') << std::string(50 - progress, ' ') << "] " << (progress * 2) << "%";
+            std::cout.flush();
+        }
+
     }
 
     std::cout << std::endl;
