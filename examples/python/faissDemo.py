@@ -2,8 +2,10 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..\\..')))
 from jffpy.data import load_features
+from jffpy.printing import format_time, purify_name
 import faiss
 import numpy as np
+import pickle
 from tqdm import tqdm
 # Print current date
 from datetime import datetime
@@ -12,6 +14,7 @@ print(now.strftime("%d/%m/%Y %H:%M:%S"))
 
 gallerypath = "C:\\Users\\Joao\\Documents\\Repos\\Griaule\\Dados\\tse1kflat_sd27"
 querypath = "C:\\Users\\Joao\\Documents\\Repos\\Griaule\\Dados\\sd27\\latent"
+qcache = "sd27_latent"
 
 print(gallerypath)
 print(querypath)
@@ -25,7 +28,7 @@ index = faiss.IndexFlatL2(d)
 features, shapes, filenames = load_features(gallerypath, log_info = True, progress_bar=True, cache=True, cache_name="tse1kflat_sd27")
 print()
 
-queries, qshapes, qfilenames = load_features(querypath, log_info = True, progress_bar = False, cache=True, cache_name="sd27_latent")
+queries, qshapes, qfilenames = load_features(querypath, log_info = True, progress_bar = False, cache=True, cache_name=qcache)
 print()
 
 # Add the features to the index
@@ -34,26 +37,19 @@ index.add(features)
 print("Added", index.ntotal, "to index.")
 print()
 
-def purify_name(name):
-    # 006022331520_E25916112409340610_dedo3.tpt
-    # -> 31520_40610_d3
-    if '-' in name:
-        return name.split(".")[0].rjust(15)
-    else:
-        parts = name.split("_")
-        frankenstein = parts[0][-5:] + "_" + parts[1][-5:] + "_d"
-        fingerno = parts[2].split("dedo")[1].split(".")[0]
-        if int(fingerno) < 10:
-            frankenstein += "0"
-        frankenstein += fingerno
-        return frankenstein.rjust(15)
-
+print("=== END OF HEADER ===")
 
 for i in range(len(filenames)):
     filenames[i] = purify_name(filenames[i])
 
-max_queries = 10
+# Listas para armazenar D e I
+all_D = []
+all_I = []
+times = []
+
+max_queries = np.inf
 progress_bar = tqdm(range(min(max_queries, len(qshapes))), desc="Processing queries")
+old_time = 0
 
 accumulated = 0
 for i in progress_bar:
@@ -63,6 +59,8 @@ for i in progress_bar:
     # Query the index
     k = 16
     D, I = index.search(query, k)
+    all_D.append(D)
+    all_I.append(I)
 
     result = np.repeat(np.arange(len(shapes)), shapes)
 
@@ -75,4 +73,10 @@ for i in progress_bar:
         print()
     
     elapsed_time = progress_bar.format_dict['elapsed']
-    print(f"Elapsed time after query {i}: {elapsed_time:.2f} seconds")
+    times.append(elapsed_time - old_time)
+    print(f"Elapsed time after query {i}: {format_time(times[-1])}")
+    old_time = elapsed_time
+
+
+with open(qcache + '_results.pkl', 'wb') as f:
+    pickle.dump((all_I, all_D, times), f)
