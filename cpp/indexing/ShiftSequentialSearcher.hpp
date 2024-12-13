@@ -2,16 +2,17 @@
 #define SHIFT_SEQUENTIAL_SEARCHER_HPP
 
 #include "SequentialSearcher.hpp"
+#include "../math/LinAlg.hpp"
 
 /**
  * @brief A class for performing sequential k-nearest neighbors search, with shift by the mean and
  * scaling by std for each individual.
  *
- * @tparam T The type of the objects stored in dataObjects.
+ * @tparam F The type of the objects stored in dataObjects.
  * @tparam DistanceFunc The type of the distance function.
  */
-template <typename T, typename DistanceFunc>
-class ShiftSequentialSearcher : public SequentialSearcher<T, DistanceFunc>
+template <typename F, typename DistanceFunc>
+class ShiftSequentialSearcher : public SequentialSearcher<F, DistanceFunc>
 {
 public:
     /**
@@ -19,25 +20,32 @@ public:
      *
      * @param distFunc The distance function to evaluate distance between objects.
      */
-    ShiftSequentialSearcher(DistanceFunc &distFunc) : SequentialSearcher<T, DistanceFunc>(distFunc) {}
+    ShiftSequentialSearcher(DistanceFunc &distFunc) : SequentialSearcher<F, DistanceFunc>(distFunc) {}
 
     /**
      * @brief Shifts and scales the query object based on the representative individual's mean and std.
      *
      * @param query The query object.
      * @param representative The representative individual.
-     * @return T The shifted and scaled query object.
+     * @return F The shifted and scaled query object.
      */
-    static T shift(const T &query, const Individual<float> *representative)
+    static F shift(F &feature, Individual<float> *representative)
     {
-        T shiftQuery(query.size());
-        T mean = representative->mean;
-        T std = representative->std;
-        for (size_t i = 0; i < query.size(); i++)
+
+        F mean = representative->mean;
+        F std = representative->std;
+        F shifted_feature(feature.size());
+
+        // f = f * std + mean
+        for (size_t i = 0; i < feature.size(); ++i)
         {
-            shiftQuery[i] = mean[i] + query[i] * std[i];
+            shifted_feature[i] = feature[i] * std[i] + mean[i];
         }
-        return shiftQuery;
+
+        shifted_feature.id = feature.id;
+        shifted_feature.representative = representative;
+
+        return shifted_feature;
     }
 
     /**
@@ -45,16 +53,11 @@ public:
      *
      * @param features The vector of features to be shifted and scaled.
      */
-    static void shiftAll(std::vector<T> &features)
+    static void shiftAll(std::vector<F> &features)
     {
-        for (auto &f : features)
+        for (size_t i = 0; i < features.size(); ++i)
         {
-            T mean = f.representative->mean;
-            T std = f.representative->std;
-            for (size_t i = 0; i < f.size(); i++)
-            {
-                f[i] = mean[i] + f[i] * std[i];
-            }
+            features[i] = shift(features[i], features[i].representative);
         }
     }
 
@@ -63,17 +66,17 @@ public:
      *
      * @param query The query object.
      * @param k The number of nearest neighbors to find.
-     * @return NNList<T> The list of k-nearest neighbors.
+     * @return NNList<F> The list of k-nearest neighbors.
      */
-    NNList<T> knn(const T &query, size_t k) const override
+    NNList<F> knn(F &query, size_t k) const override
     {
-        NNList<T> nnList(k);
+        NNList<F> nnList(k);
 
         // Sequentially calculate the distance between the query object and all objects in dataObjects
         // Takes O(n) distance calculations
         for (const auto &obj : this->dataObjects)
         {
-            T shiftQuery = shift(query, obj.representative);
+            F shiftQuery = shift(query, obj.representative);
             double dist = this->distanceFunc(shiftQuery, obj);
 
             nnList.insert(obj, dist);

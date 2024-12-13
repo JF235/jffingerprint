@@ -30,7 +30,7 @@ public:
      * @param k The number of nearest neighbors to find.
      * @return NNList<T> The list of k-nearest neighbors.
      */
-    virtual NNList<T> knn(const T &query, size_t k) const
+    virtual NNList<T> knn(T &query, size_t k) const
     {
         NNList<T> nnList(k);
 

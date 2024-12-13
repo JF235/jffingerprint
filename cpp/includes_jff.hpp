@@ -11,5 +11,6 @@
 #include "indexing/ShiftSequentialSearcher.hpp"
 
 #include "math/DistanceFunction.hpp"
+#include "math/LinAlg.hpp"
 
 #endif // INCLUDES_JFF_HPP

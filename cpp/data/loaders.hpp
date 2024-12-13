@@ -11,6 +11,7 @@
 #include "ParentedFeature.hpp"
 #include "Individual.hpp"
 #include "../dependencies/npy.hpp"
+#include "../math/LinAlg.hpp"
 
 namespace fs = std::filesystem;
 
@@ -45,7 +46,7 @@ std::vector<F> loadNpy(std::string filename, bool log_info)
 
     // Reserve space for dataFeatures to avoid multiple reallocations
     dataFeatures.reserve(shape[0]);
-    
+
     // Go through the lines of matrix
     for (uint32_t i = 0; i < shape[0]; i++)
     {
@@ -68,10 +69,111 @@ std::vector<F> loadNpy(std::string filename, bool log_info)
 }
 
 /**
+ * @brief Loads data from a .tpt file and converts it into a list of feature vectors.
+ *
+ * This function reads a specified .tpt file, extracts the data, and converts it into a list of feature vectors.
+ *
+ * @param filepath The path to the .tpt file to be loaded.
+ * @return A vector of feature vectors extracted from the .tpt file.
+ * @tparam F Type of the feature vectors to be loaded.
+ */
+template <typename F>
+std::vector<F> loadTpt(std::string filename, bool log_info)
+{
+    auto start = std::chrono::high_resolution_clock::now();
+
+    std::ifstream file(filename);
+    if (!file.is_open())
+    {
+        throw std::runtime_error("Could not open file: " + filename);
+    }
+
+    std::string line;
+
+    // Skip the first line
+    std::getline(file, line);
+
+    // Read the header line
+    std::getline(file, line);
+    std::istringstream headerStream(line);
+    int featureNum, height, width, dimensions;
+    headerStream >> featureNum >> height >> width >> dimensions;
+
+    // Allocate space for the feature vectors
+    std::vector<F> dataFeatures;
+    dataFeatures.reserve(featureNum);
+    std::vector<float> zValues(dimensions);
+
+    // Process each feature line
+    while (std::getline(file, line))
+    {
+        std::istringstream lineStream(line);
+        float x, y, theta, score;
+        lineStream >> x >> y >> theta >> score;
+
+        for (int i = 0; i < dimensions; ++i)
+        {
+            lineStream >> zValues[i];
+        }
+
+        // Normalize the zValues using LinAlg::norm
+        float norm = LinAlg::norm<F>(zValues);
+        for (float &val : zValues)
+        {
+            val /= norm;
+        }
+
+        dataFeatures.emplace_back(zValues);
+    }
+
+    file.close();
+
+    if (log_info)
+    {
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = (end - start) * 1000; // milliseconds
+        std::cout << "Added " << dataFeatures.size() << " features\n";
+        std::cout << "Time: " << duration.count() << " ms\n\n";
+    }
+
+    return dataFeatures;
+}
+
+/**
+ * @brief Loads data from a file and converts it into a list of features.
+ *
+ * This function reads a specified file, determines its extension, and calls the appropriate
+ * specialized function to extract the data and convert it into a list of features.
+ *
+ * @param filename The name of the file to be loaded.
+ * @param log_info If true, logs information about the loading process.
+ * @return A vector of features extracted from the file.
+ * @tparam F Type of the features to be loaded.
+ */
+template <typename F>
+std::vector<F> loadFile(const std::string &filename, bool log_info)
+{
+    std::string extension = fs::path(filename).extension().string();
+    if (extension == ".npy")
+    {
+        return loadNpy<F>(filename, log_info);
+    }
+    else if (extension == ".tpt")
+    {
+        return loadTpt<F>(filename, log_info);
+    }
+    else
+    {
+        throw std::runtime_error("Unsupported file extension: " + extension);
+    }
+}
+
+
+/**
  * @brief Loads individuals and their features from a specified directory.
  * 
  * This function iterates through all files in the given directory path, 
- * loads individuals from files with a ".npy" extension, and extracts their features.
+ * loads individuals from files with a ".npy" or ".tpt" extension, and extracts their features.
  * It also associates each feature with the individual it belongs to and vice versa.
  * Finally, it calculates the mean and standard deviation for each individual.
  * 
@@ -87,17 +189,22 @@ std::pair<std::vector<std::shared_ptr<Individual<float>>>, std::vector<ParentedF
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    // Iterate through all files in the directory and load individuals from .npy files
+    // Get the total number of files to process for the progress bar
+    size_t totalFiles = std::distance(fs::directory_iterator(directoryPath), fs::directory_iterator{});
+    size_t processedFiles = 0;
+
+    // Iterate through all files in the directory and load individuals from .npy or .tpt files
     for (const auto &entry : fs::directory_iterator(directoryPath))
     {
-        if (entry.path().extension() == ".npy")
+        std::string extension = entry.path().extension().string();
+        if (extension == ".npy" || extension == ".tpt")
         {
-            // For each .npy file, create an individual
+            // For each file, create an individual
             auto individual = std::make_shared<Individual<float>>();
             individual->name = entry.path().filename().string();
 
             // Load all features from the file
-            std::vector<feature> fileFeatures = loadNpy<feature>(entry.path().string(), false);
+            std::vector<feature> fileFeatures = loadFile<feature>(entry.path().string(), false);
 
             for (auto &f : fileFeatures)
             {
@@ -110,10 +217,18 @@ std::pair<std::vector<std::shared_ptr<Individual<float>>>, std::vector<ParentedF
             // Calculate the mean and std for the individual
             individual->calculateMean(fileFeatures);
             individual->calculateStd(fileFeatures);
-    
+
             individuals.push_back(individual);
         }
+
+        // Update the progress bar
+        processedFiles++;
+        int progress = static_cast<int>(static_cast<double>(processedFiles) / totalFiles * 50);
+        std::cout << "\rProgress: [" << std::string(progress, '*') << std::string(50 - progress, ' ') << "] " << (progress * 2) << "%";
+        std::cout.flush();
     }
+
+    std::cout << std::endl;
 
     if (log_info)
     {
